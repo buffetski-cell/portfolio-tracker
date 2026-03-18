@@ -468,8 +468,8 @@ const SCOPES       = 'https://www.googleapis.com/auth/spreadsheets.readonly';
 const REDIRECT_URI = window.location.origin + window.location.pathname;
 
 // Summary cells for daily tracking
-const YESTERDAY_CLOSE_CELL = 'AH52';  // Yesterday's Close
-const TODAY_CHANGE_CELL    = 'AH53';  // Today's Change %
+const YESTERDAY_CLOSE_CELL = 'AH49';  // Last trading day total
+const TODAY_CHANGE_CELL    = 'AG47';  // Current portfolio total
 
 // ─── ACCOUNT DEFINITIONS (column indices, 0-based) ──────────────────
 // Adjust these if your columns shift. Based on your header order:
@@ -752,16 +752,17 @@ function renderDashboard(rows, yesterdayClose, todayChange) {
     snapYesterdayEl.textContent = 'No data';
   }
   
-  const snapChangeEl = document.getElementById('snap-change');
-  if (todayChange !== 'N/A' && todayChange !== 'No data') {
-    const tcVal = parseNum(todayChange);
-    const dollarChange = totalValue * tcVal;
-    snapChangeEl.textContent = fmt(dollarChange);
-    snapChangeEl.className = 'pl-val ' + plClass(tcVal);
-  } else {
-    snapChangeEl.textContent = 'N/A';
-    snapChangeEl.className = 'pl-val';
-  }
+const snapChangeEl = document.getElementById('snap-change');
+const ycVal = parseNum(yesterdayClose);
+if (ycVal > 0 && totalValue > 0) {
+  const dollarChange = totalValue - ycVal;
+  const pctChange = dollarChange / ycVal;
+  snapChangeEl.textContent = (dollarChange >= 0 ? '+' : '') + fmt(dollarChange) + ' (' + fmtPct(pctChange) + ')';
+  snapChangeEl.className = 'pl-val ' + plClass(dollarChange);
+} else {
+  snapChangeEl.textContent = 'N/A';
+  snapChangeEl.className = 'pl-val';
+}
 
   // ── Accounts ──
   const accountsList = document.getElementById('accounts-list');
