@@ -469,7 +469,7 @@ const REDIRECT_URI = window.location.origin + window.location.pathname;
 
 // ── UPDATED: Correct cell references ──
 const YESTERDAY_CLOSE_CELL = 'AH38';  // Last trading day total
-const CURRENT_TOTAL_CELL   = 'AG36';  // Current portfolio total
+const CURRENT_TOTAL_CELL   = 'AG37';  // Current portfolio total
 
 // ─── ACCOUNT DEFINITIONS (column indices, 0-based) ──────────────────
 const ACCOUNTS = [
@@ -656,11 +656,11 @@ function renderDashboard(rows, yesterdayClose, currentTotal) {
     holdings.push({ ticker, name, price, value, totalSh, avgCost, pl: holdingPL, target, breach, sleeve, dailyChange: 0 });
   });
 
-  // ── Calculate daily change using AH49 (yesterday) vs AG47 (current) ──
+  // ── Calculate daily change using AH39 (yesterday) vs AG37 (current) ──
   const ycVal = parseNum(yesterdayClose);
   const ctVal = parseNum(currentTotal);
 
-  // Use AG47 as the authoritative current total if valid, otherwise fall back to summed totalValue
+  // Use AG37 as the authoritative current total if valid, otherwise fall back to summed totalValue
   const trueCurrentTotal = (ctVal > 0) ? ctVal : totalValue;
   const dailyDollarChange = (ycVal > 0) ? trueCurrentTotal - ycVal : 0;
   const dailyPctChange    = (ycVal > 0) ? dailyDollarChange / ycVal : 0;
@@ -691,7 +691,7 @@ function renderDashboard(rows, yesterdayClose, currentTotal) {
 
   document.getElementById('hero-date').textContent = new Date().toLocaleDateString('en-US',{ month:'short', day:'numeric' });
 
-  // ── Hero change badge — true daily change from AH49 vs AG47 ──
+  // ── Hero change badge — true daily change from AH39 vs AG37 ──
   const changeEl = document.getElementById('hero-change');
   changeEl.style.display = 'inline-flex';
   changeEl.className = 'hero-change ' + plClass(dailyDollarChange);
