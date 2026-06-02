@@ -576,60 +576,24 @@ function renderTradeTickets(rows) {
     return;
   }
 
-  // ── Strategy 1: Find the bottom ticket table ──────────────────────
-  // Look for a row where col[0] === 'Ticker' and col[1] === 'Action'
-  // (the summary ticket block at the bottom of the sheet)
-  let ticketTableStart = -1;
-  for (let i = rows.length - 1; i >= 0; i--) {
-    const r = rows[i] || [];
-    if (
-      (r[0] || '').trim().toLowerCase() === 'ticker' &&
-      (r[1] || '').trim().toLowerCase() === 'action'
-    ) {
-      ticketTableStart = i + 1; // data starts on next row
-      break;
-    }
-  }
-
-  let tickets = [];
-
-  if (ticketTableStart > 0) {
-    // Read rows from the bottom ticket table
-    for (let i = ticketTableStart; i < rows.length; i++) {
-      const r      = rows[i] || [];
-      const ticker = (r[0] || '').trim();
-      const action = (r[1] || '').trim().toUpperCase();
-      const shares = parseNum(r[2]);
-      const dollars= parseNum(r[3]);
-      const account= (r[4] || '').trim();
-
-      // Skip blank rows, header echoes, and #N/A placeholders
-      if (!ticker || ticker === '#N/A' || ticker.toLowerCase() === 'ticker') continue;
-      if (action !== 'BUY' && action !== 'SELL') continue;
-      if (shares === 0 && dollars === 0) continue;
-
-      tickets.push({ ticker, action, shares, dollars, account });
-    }
-  }
-
-  // ── Strategy 2: Fallback — scan individual rows for Execute? = YES ─
-  // Column 41 = "Execute?" in the main ticker rows
-  if (tickets.length === 0) {
-    tickets = rows.slice(1)
-      .map(r => ({
-        ticker:  (r[0]  || '').trim(),
-        action:  (r[43] || '').trim().toUpperCase(),  // "Trade Action" col
-        execute: (r[41] || '').trim().toUpperCase(),  // "Execute?" col
-        shares:  parseNum(r[42]),                     // "Number of Shares"
-        dollars: parseNum(r[40]),                     // "Suggested Trade ($)"
-        account: (r[46] || '').trim()                 // "Preferred Account"
-      }))
-      .filter(t =>
-        t.execute === 'YES' &&
-        (t.action === 'BUY' || t.action === 'SELL') &&
-        (t.shares !== 0 || t.dollars !== 0)
-      );
-  }
+  // Correct column indices (0-based) from actual sheet headers:
+  // [42] Action  [44] Execute?  [48] Suggested Trade ($)
+  // [49] Number of Shares  [50] Trade Action  [52] Preferred Account
+  const tickets = rows.slice(1)
+    .map(r => ({
+      ticker:  (r[0]  || '').trim(),
+      execute: (r[44] || '').trim().toUpperCase(),
+      action:  (r[50] || '').trim().toUpperCase(),
+      dollars: parseNum(r[48]),
+      shares:  parseNum(r[49]),
+      account: (r[52] || '').trim()
+    }))
+    .filter(t =>
+      t.ticker &&
+      t.ticker !== '#N/A' &&
+      t.execute === 'YES' &&
+      (t.action === 'BUY' || t.action === 'SELL')
+    );
 
   if (!tickets.length) {
     badge.style.display = 'none';
