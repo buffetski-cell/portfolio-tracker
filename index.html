@@ -178,18 +178,6 @@
   .period-btn.active { background: var(--accent); color: var(--bg); border-color: var(--accent); }
   .chart-container { width: 100%; height: 240px; position: relative; }
   .chart-message { text-align: center; color: var(--text-secondary); font-size: 13px; margin-top: 12px; }
-
-<!-- Action Required -->
-<div class="section-title">
-  <span>Action Required</span>
-  <span id="trade-badge" class="badge"></span>
-</div>
-
-<div class="account-card" id="trade-tickets-card">
-  <div class="holding-row" style="justify-content:center;color:var(--text-secondary)">
-    Loading…
-  </div>
-</div>
  
  /* Sleeves */
   .sleeve-card {
@@ -382,6 +370,18 @@
         </div>
       </div>
     </div>
+
+<!-- Action Required -->
+<div class="section-title">
+  <span>Action Required</span>
+  <span id="trade-badge" class="badge"></span>
+</div>
+
+<div class="account-card" id="trade-tickets-card">
+  <div class="holding-row" style="justify-content:center;color:var(--text-secondary)">
+    Loading…
+  </div>
+</div>
 
     <!-- Charts Section (collapsible) -->
     <div class="charts-section" id="charts-section" style="display:none;">
@@ -734,6 +734,115 @@ renderTradeTickets(rows);
     snapChangeEl.className = 'pl-val';
   }
 
+/*************************************************************
+ * ACTION REQUIRED – TRADE TICKETS
+ *************************************************************/
+
+const TRADE_ACTION_COL = 40;
+const SHARES_COL       = 39;
+const SUGGESTED_COL    = 38;
+const ACCOUNT_COL      = 42;
+
+function todayET() {
+  return new Date().toLocaleDateString('en-CA', { timeZone:'America/New_York' });
+}
+
+function isWeekdayET() {
+  const d = new Date(
+    new Date().toLocaleString('en-US',{timeZone:'America/New_York'})
+  ).getDay();
+  return d !== 0 && d !== 6;
+}
+
+function marketClosedET() {
+  const t = new Date(
+    new Date().toLocaleString('en-US',{timeZone:'America/New_York'})
+  );
+  return t.getHours() > 16 || (t.getHours() === 16 && t.getMinutes() >= 15);
+}
+
+function ticketKey(ticker) {
+  return `ticket_done_${todayET()}_${ticker}`;
+}
+function isTicketDone(ticker) {
+  return localStorage.getItem(ticketKey(ticker)) === '1';
+}
+function toggleTicketDone(ticker, checked) {
+  localStorage.setItem(ticketKey(ticker), checked ? '1' : '0');
+}
+
+function resetTicketsIfNewTradingDay() {
+  if (!isWeekdayET()) return;
+  const today = todayET();
+  const last = localStorage.getItem('ticket_last_reset');
+  if (last !== today) {
+    Object.keys(localStorage)
+      .filter(k => k.startsWith('ticket_done_'))
+      .forEach(k => localStorage.removeItem(k));
+    localStorage.setItem('ticket_last_reset', today);
+  }
+}
+
+function renderTradeTickets(rows) {
+  const card  = document.getElementById('trade-tickets-card');
+  const badge = document.getElementById('trade-badge');
+  if (!card || !badge) return;
+
+  card.innerHTML = '';
+
+  if (marketClosedET()) {
+    badge.style.display = 'none';
+    card.innerHTML =
+      `<div class="holding-row" style="justify-content:center;color:var(--text-secondary)">
+        ✅ Market closed — no actions required
+      </div>`;
+    return;
+  }
+
+  const tickets = rows.slice(1)
+    .map(r => ({
+      ticker: r[0],
+      action: (r[TRADE_ACTION_COL] || '').trim(),
+      shares: parseNum(r[SHARES_COL]),
+      dollars: parseNum(r[SUGGESTED_COL]),
+      account: (r[ACCOUNT_COL] || '').trim()
+    }))
+    .filter(t => (t.action === 'BUY' || t.action === 'SELL') && t.shares !== 0);
+
+  if (!tickets.length) {
+    badge.style.display = 'none';
+    card.innerHTML =
+      `<div class="holding-row" style="justify-content:center;color:var(--text-secondary)">
+        ✅ No trades to execute
+      </div>`;
+    return;
+  }
+
+  badge.textContent = tickets.length;
+  badge.style.display = 'inline-block';
+
+  tickets.forEach(t => {
+    const done = isTicketDone(t.ticker);
+    card.innerHTML += `
+      <div class="holding-row ${done ? 'fade' : ''}">
+        <div style="display:flex;gap:10px;align-items:center">
+          <input type="checkbox" ${done ? 'checked' : ''}
+            onchange="toggleTicketDone('${t.ticker}', this.checked);
+                      this.closest('.holding-row').classList.toggle('fade', this.checked)">
+          <div>
+            <div class="holding-ticker">${t.ticker}</div>
+            <div class="holding-name">${t.account}</div>
+          </div>
+        </div>
+        <div class="holding-right">
+          <div>${t.action} ${Math.abs(t.shares)}</div>
+          <div class="${t.action === 'BUY' ? 'positive' : 'negative'}">
+            ${fmt(t.dollars)}
+          </div>
+        </div>
+      </div>`;
+  });
+}
   // ── Accounts ──
   const accountsList = document.getElementById('accounts-list');
   accountsList.innerHTML = '';
@@ -1251,120 +1360,3 @@ init();
 </script>
 </body>
 </html>
-/*************************************************************
- * ACTION REQUIRED – TRADE TICKETS (FULLY SELF-CONTAINED)
- *************************************************************/
-
-/* ── Column indices (0-based, matches your sheet) ── */
-const TRADE_ACTION_COL = 40;
-const SHARES_COL       = 39;
-const SUGGESTED_COL    = 38;
-const ACCOUNT_COL      = 42;
-
-/* ── Time helpers (ET-aware) ── */
-function todayET() {
-  return new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' });
-}
-function isWeekdayET() {
-  const d = new Date(
-    new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })
-  ).getDay();
-  return d !== 0 && d !== 6;
-}
-function marketClosedET() {
-  const t = new Date(
-    new Date().toLocaleString('en-US', { timeZone: 'America/New_York' })
-  );
-  return t.getHours() > 16 || (t.getHours() === 16 && t.getMinutes() >= 15);
-}
-
-/* ── Checkbox persistence ── */
-function ticketKey(ticker) {
-  return `ticket_done_${todayET()}_${ticker}`;
-}
-function isTicketDone(ticker) {
-  return localStorage.getItem(ticketKey(ticker)) === '1';
-}
-function toggleTicketDone(ticker, checked) {
-  localStorage.setItem(ticketKey(ticker), checked ? '1' : '0');
-}
-
-/* ── Auto-reset next trading day ── */
-function resetTicketsIfNewTradingDay() {
-  if (!isWeekdayET()) return;
-
-  const today = todayET();
-  const last = localStorage.getItem('ticket_last_reset');
-
-  if (last !== today) {
-    Object.keys(localStorage)
-      .filter(k => k.startsWith('ticket_done_'))
-      .forEach(k => localStorage.removeItem(k));
-
-    localStorage.setItem('ticket_last_reset', today);
-    console.log('✅ Trade tickets reset:', today);
-  }
-}
-
-/* ── Render Action Required ── */
-function renderTradeTickets(rows) {
-  const card  = document.getElementById('trade-tickets-card');
-  const badge = document.getElementById('trade-badge');
-  if (!card || !badge) return;
-
-  card.innerHTML = '';
-
-  if (marketClosedET()) {
-    badge.style.display = 'none';
-    card.innerHTML = `
-      <div class="holding-row" style="justify-content:center;color:var(--text-secondary)">
-        ✅ Market closed — no actions required
-      </div>`;
-    return;
-  }
-
-  const tickets = rows.slice(1)
-    .map(r => ({
-      ticker: r[0],
-      action: (r[TRADE_ACTION_COL] || '').trim(),
-      shares: parseNum(r[SHARES_COL]),
-      dollars: parseNum(r[SUGGESTED_COL]),
-      account: (r[ACCOUNT_COL] || '').trim()
-    }))
-    .filter(t => (t.action === 'BUY' || t.action === 'SELL') && t.shares !== 0);
-
-  if (!tickets.length) {
-    badge.style.display = 'none';
-    card.innerHTML = `
-      <div class="holding-row" style="justify-content:center;color:var(--text-secondary)">
-        ✅ No trades to execute
-      </div>`;
-    return;
-  }
-
-  badge.textContent = tickets.length;
-  badge.style.display = 'inline-block';
-
-  tickets.forEach(t => {
-    const done = isTicketDone(t.ticker);
-    card.innerHTML += `
-      <div class="holding-row ${done ? 'fade' : ''}">
-        <div style="display:flex;gap:10px;align-items:center">
-          <input type="checkbox" ${done ? 'checked' : ''}
-            onchange="toggleTicketDone('${t.ticker}', this.checked);
-                      this.closest('.holding-row').classList.toggle('fade', this.checked)">
-          <div>
-            <div class="holding-ticker">${t.ticker}</div>
-            <div class="holding-name">${t.account}</div>
-          </div>
-        </div>
-        <div class="holding-right">
-          <div>${t.action} ${Math.abs(t.shares)}</div>
-          <div class="${t.action === 'BUY' ? 'positive' : 'negative'}">
-            ${fmt(t.dollars)}
-          </div>
-        </div>
-      </div>`;
-  });
-}
-``
