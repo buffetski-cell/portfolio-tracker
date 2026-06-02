@@ -576,15 +576,20 @@ function renderTradeTickets(rows) {
     return;
   }
 
-  const tickets = rows.slice(1)
-    .map(r => ({
-      ticker:  (r[0] || '').trim(),
-      action:  (r[TRADE_ACTION_COL] || '').trim(),
-      shares:  parseNum(r[SHARES_COL]),
-      dollars: parseNum(r[SUGGESTED_COL]),
-      account: (r[ACCOUNT_COL] || '').trim()
-    }))
-    .filter(t => (t.action === 'BUY' || t.action === 'SELL') && t.shares !== 0);
+const tickets = rows.slice(1)
+  .map(r => ({
+    ticker:  (r[0] || '').trim(),
+    action:  String(r[TRADE_ACTION_COL] ?? '')
+               .toUpperCase()
+               .trim(),
+    shares:  parseNum(r[SHARES_COL] ?? 0),
+    dollars: parseNum(r[SUGGESTED_COL] ?? 0),
+    account: String(r[ACCOUNT_COL] ?? '').trim()
+  }))
+  .filter(t =>
+    (t.action === 'BUY' || t.action === 'SELL') &&
+    (t.shares !== 0 || t.dollars !== 0)
+  );
 
   if (!tickets.length) {
     badge.style.display = 'none';
@@ -872,7 +877,9 @@ function renderTradeTickets(rows) {
   const tickets = rows.slice(1)
     .map(r => ({
       ticker: r[0],
-      action: (r[TRADE_ACTION_COL] || '').trim(),
+      action: String(r[TRADE_ACTION_COL] || '')
+          .toUpperCase()
+          .trim(),
       shares: parseNum(r[SHARES_COL]),
       dollars: parseNum(r[SUGGESTED_COL]),
       account: (r[ACCOUNT_COL] || '').trim()
