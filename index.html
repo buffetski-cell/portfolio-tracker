@@ -926,14 +926,41 @@ function toggleCharts() {
 
 // ─── MAIN FLOW ────────────────────────────────────────────────────────
 async function init() {
+  // 1. Returning from OAuth with a fresh token — save it and load
   const hp = parseHashParams();
   if (hp && hp.access_token) {
     accessToken = hp.access_token;
-    history.replaceState(null,'',window.location.pathname);
-    await loadData(); return;
+    localStorage.setItem('access_token', accessToken);
+    localStorage.setItem('token_expiry', String(Date.now() + (3600 * 1000)));
+    history.replaceState(null, '', window.location.pathname);
+    await loadData();
+    return;
   }
-  const code = new URLSearchParams(window.location.search).get('code');
-  if (code) { showScreen('loading-screen'); loadingMsg.textContent='Redirecting…'; await exchangeCode(); return; }
+
+  // 2. Cached token still valid — skip auth screen entirely
+  const saved  = localStorage.getItem('access_token');
+  const expiry = parseInt(localStorage.getItem('token_expiry') || '0');
+
+  if (saved && Date.now() < expiry) {
+    accessToken = saved;
+    await loadData();
+    return;
+  }
+
+  // 3. Token expired — silent re-auth, no consent screen shown
+  if (saved && Date.now() >= expiry) {
+    const params = new URLSearchParams({
+      client_id:     CLIENT_ID,
+      redirect_uri:  REDIRECT_URI,
+      response_type: 'token',
+      scope:         SCOPES,
+      access_type:   'online'
+    });
+    window.location.href = 'https://accounts.google.com/o/oauth2/v2/auth?' + params;
+    return;
+  }
+
+  // 4. First visit ever — show sign-in screen
   showScreen('auth-screen');
 }
 
